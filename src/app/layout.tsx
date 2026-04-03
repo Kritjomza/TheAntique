@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "An Interactive Personality Quiz",
   icons: {
     icon: "/icon.webp",
+    shortcut: "/icon.webp",
+    apple: "/icon.webp",
   },
 };
 
