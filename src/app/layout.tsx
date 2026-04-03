@@ -15,6 +15,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "The Antique Shop | ร้านของเก่าที่รอเจ้าของ",
   description: "An Interactive Personality Quiz",
+  icons: {
+    icon: "/icon.webp",
+  },
 };
 
 export default function RootLayout({
