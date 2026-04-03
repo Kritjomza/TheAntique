@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useQuiz } from "@/context/QuizContext";
 import { scenes, Choice } from "@/lib/sceneData";
 import { Eye, MessageCircle, HelpCircle, Sparkles } from "lucide-react";
+import { useRef } from "react";
 
 /* ──────────────────────────────────────────────
    Visual Mockup — placeholder illustration area
@@ -119,15 +120,39 @@ function SceneBadge({ type }: { type: string }) {
    ══════════════════════════════════════════════ */
 export default function StoryScene() {
   const { currentScene, nextScene, finishQuiz, addScore, scores } = useQuiz();
-  // Prevent out of bounds crash during Framer Motion exit animation when transitioning to result screen
-  const safeSceneIndex = Math.max(0, Math.min(currentScene - 1, scenes.length - 1));
-  const scene = scenes[safeSceneIndex];
 
-  if (!scene) return null;
+  // Use a ref to "freeze" the scene index at mount time.
+  // During Framer Motion exit animations, the parent may have already
+  // advanced currentScene (e.g. from 13→14), but this component should
+  // keep rendering the scene it was ORIGINALLY showing, not re-index
+  // into an out-of-bounds slot.
+  const frozenScene = useRef(currentScene);
+
+  // The scene data to render — always based on the frozen scene index.
+  const sceneIndex = frozenScene.current - 1;
+  const scene = scenes[sceneIndex];
+
+  // Safety: if scene doesn't exist (should never happen), render an
+  // invisible placeholder so the exit animation can still complete.
+  if (!scene) {
+    return (
+      <motion.div
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="w-0 h-0 overflow-hidden"
+      />
+    );
+  }
+
+  // Guard: prevent clicks if this component is already exiting
+  // (currentScene has moved past this scene).
+  const isExiting = currentScene !== frozenScene.current;
 
   const handleChoice = (choice: Choice) => {
-    const latestScores = { ...scores };
+    if (isExiting) return; // Already transitioning away, ignore clicks
 
+    // Calculate the latest scores including this choice's effect
+    const latestScores = { ...scores };
     if (choice.effect) {
       Object.entries(choice.effect).forEach(([axis, value]) => {
         addScore(axis as keyof typeof choice.effect, value as number);
@@ -136,6 +161,7 @@ export default function StoryScene() {
     }
 
     if (currentScene === scenes.length) {
+      // This is the last scene — finish the quiz with the final scores
       finishQuiz(latestScores);
     } else {
       nextScene();
@@ -216,9 +242,7 @@ export default function StoryScene() {
             className="w-full px-5 py-4 border border-brand-charcoal/15 hover:border-brand-gold hover:bg-brand-gold/5 transition-all duration-500 font-sans text-sm text-brand-charcoal/80 hover:text-brand-gold relative overflow-hidden group text-left"
             whileHover={{ x: 4 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => {
-              if (currentScene <= scenes.length) handleChoice(choice);
-            }}
+            onClick={() => handleChoice(choice)}
           >
             <span className="relative z-10 flex items-start gap-3">
               <span className="text-brand-gold/50 font-serif text-xs mt-0.5 shrink-0">
