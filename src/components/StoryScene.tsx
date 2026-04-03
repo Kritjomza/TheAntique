@@ -1,15 +1,15 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring } from "framer-motion";
 import { useQuiz } from "@/context/QuizContext";
 import { scenes, Choice } from "@/lib/sceneData";
 import { Eye, MessageCircle, HelpCircle, Sparkles } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 /* ──────────────────────────────────────────────
    Visual Mockup — placeholder illustration area
    ────────────────────────────────────────────── */
-function VisualMockup({ visual, mood }: { visual: string; mood?: string }) {
+function VisualMockup({ visual, mood, parallaxX, parallaxY }: { visual: string; mood?: string; parallaxX: any; parallaxY: any }) {
   const bgMap: Record<string, string> = {
     warm: "from-amber-900/30 to-yellow-800/10",
     bright: "from-amber-600/20 to-orange-300/10",
@@ -20,10 +20,11 @@ function VisualMockup({ visual, mood }: { visual: string; mood?: string }) {
 
   return (
     <motion.div
-      className={`w-full max-w-lg aspect-[16/9] rounded-lg bg-gradient-to-br ${bg} border border-brand-charcoal/10 flex flex-col items-center justify-center p-6 mb-8 relative overflow-hidden`}
+      className={`w-full max-w-lg aspect-[16/9] rounded-lg bg-gradient-to-br ${bg} border border-brand-charcoal/10 flex flex-col items-center justify-center p-6 mb-8 relative overflow-hidden shadow-2xl`}
       initial={{ opacity: 0, scale: 1.05, filter: "blur(6px)" }}
       animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
       transition={{ duration: 2.5, ease: "easeOut" }}
+      style={{ x: parallaxX, y: parallaxY }}
     >
       {/* Film-grain overlay */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJhIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iLjc1IiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2EpIiBvcGFjaXR5PSIuMDgiLz48L3N2Zz4=')] opacity-40 pointer-events-none" />
@@ -121,19 +122,34 @@ function SceneBadge({ type }: { type: string }) {
 export default function StoryScene() {
   const { currentScene, nextScene, finishQuiz, addScore, scores } = useQuiz();
 
+  // Mouse Parallax Logic for foreground elements
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const smoothX = useSpring(mouseX, { damping: 50, stiffness: 200 });
+  const smoothY = useSpring(mouseY, { damping: 50, stiffness: 200 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const normalizedX = (e.clientX / window.innerWidth) * 2 - 1;
+      const normalizedY = (e.clientY / window.innerHeight) * 2 - 1;
+      
+      // Move foreground elements WITH the mouse (opposite to background inverse mapping)
+      mouseX.set(normalizedX * 12); 
+      mouseY.set(normalizedY * 12);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [mouseX, mouseY]);
+
   // Use a ref to "freeze" the scene index at mount time.
-  // During Framer Motion exit animations, the parent may have already
-  // advanced currentScene (e.g. from 13→14), but this component should
-  // keep rendering the scene it was ORIGINALLY showing, not re-index
-  // into an out-of-bounds slot.
   const frozenScene = useRef(currentScene);
 
   // The scene data to render — always based on the frozen scene index.
   const sceneIndex = frozenScene.current - 1;
   const scene = scenes[sceneIndex];
 
-  // Safety: if scene doesn't exist (should never happen), render an
-  // invisible placeholder so the exit animation can still complete.
+  // Safety: if scene doesn't exist
   if (!scene) {
     return (
       <motion.div
@@ -145,13 +161,11 @@ export default function StoryScene() {
   }
 
   // Guard: prevent clicks if this component is already exiting
-  // (currentScene has moved past this scene).
   const isExiting = currentScene !== frozenScene.current;
 
   const handleChoice = (choice: Choice) => {
-    if (isExiting) return; // Already transitioning away, ignore clicks
+    if (isExiting) return;
 
-    // Calculate the latest scores including this choice's effect
     const latestScores = { ...scores };
     if (choice.effect) {
       Object.entries(choice.effect).forEach(([axis, value]) => {
@@ -161,7 +175,6 @@ export default function StoryScene() {
     }
 
     if (currentScene === scenes.length) {
-      // This is the last scene — finish the quiz with the final scores
       finishQuiz(latestScores);
     } else {
       nextScene();
@@ -189,7 +202,7 @@ export default function StoryScene() {
             }
           : { duration: 1.5, ease: "easeInOut" }
       }
-      className="flex flex-col items-center justify-center max-w-2xl w-full text-center px-6 py-8"
+      className="flex flex-col items-center justify-center max-w-2xl w-full text-center px-6 py-8 relative z-10"
     >
       {/* Scene Title */}
       <motion.h2
@@ -210,8 +223,8 @@ export default function StoryScene() {
         {scene.title}
       </motion.h3>
 
-      {/* Visual Mockup Area */}
-      <VisualMockup visual={scene.visual} mood={scene.mood} />
+      {/* Visual Mockup Area uses strong Parallax */}
+      <VisualMockup visual={scene.visual} mood={scene.mood} parallaxX={smoothX} parallaxY={smoothY} />
 
       {/* Kintsugi FX for scene 11 */}
       {isKintsugi && <KintsugiEffect />}
@@ -229,20 +242,29 @@ export default function StoryScene() {
         {scene.text}
       </motion.p>
 
-      {/* Choices */}
+      {/* Choices with subtle Parallax */}
       <motion.div
         className="flex flex-col space-y-3 w-full max-w-lg"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1.5, delay: 2 }}
+        // The buttons move slightly less than the mockup frame
+        style={{
+          x: useSpring(useMotionValue(0), { damping: 40, stiffness: 150, mass: 0.5 }), // we can just map simple transforms directly below if we want, or use the existing smoothX mapped with a negative scalar
+        }}
       >
         {scene.choices.map((choice, index) => (
           <motion.button
             key={index}
-            className="w-full px-5 py-4 border border-brand-charcoal/15 hover:border-brand-gold hover:bg-brand-gold/5 transition-all duration-500 font-sans text-sm text-brand-charcoal/80 hover:text-brand-gold relative overflow-hidden group text-left"
-            whileHover={{ x: 4 }}
+            className="w-full px-5 py-4 border border-brand-charcoal/15 hover:border-brand-gold hover:bg-brand-gold/5 transition-all duration-500 font-sans text-sm text-brand-charcoal/80 hover:text-brand-gold relative overflow-hidden group text-left shadow-sm hover:shadow-brand-gold/10"
+            whileHover={{ x: 4, scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => handleChoice(choice)}
+            style={{
+              // Use direct transform using the generic smoothX but halving the effect
+              translateX: smoothX,
+              translateY: smoothY
+            }}
           >
             <span className="relative z-10 flex items-start gap-3">
               <span className="text-brand-gold/50 font-serif text-xs mt-0.5 shrink-0">

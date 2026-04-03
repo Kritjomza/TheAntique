@@ -112,9 +112,12 @@ export interface Scores {
 }
 
 export function calculateArchetype(scores: Scores): ArchetypeName {
-  const isI = scores.I >= scores.E;
-  const isT = scores.T >= scores.F;
-  const isS = scores.S >= scores.C;
+  // เมื่อคะแนนเท่ากันเป๊ะ แรนดอมให้โอกาส 50/50 เพื่อความเท่าเทียมในแต่ละฝั่ง (Tie-breaker)
+  const resolveTie = () => Math.random() > 0.5;
+
+  const isI = scores.I === scores.E ? resolveTie() : scores.I > scores.E;
+  const isT = scores.T === scores.F ? resolveTie() : scores.T > scores.F;
+  const isS = scores.S === scores.C ? resolveTie() : scores.S > scores.C;
 
   if (isI && isT && isS) return "กล้องฟิล์มเยอรมันเก่า";
   if (isI && isT && !isS) return "นาฬิกาพกทองเหลือง";
