@@ -118,20 +118,25 @@ function SceneBadge({ type }: { type: string }) {
    Main StoryScene Component
    ══════════════════════════════════════════════ */
 export default function StoryScene() {
-  const { currentScene, nextScene, finishQuiz, addScore } = useQuiz();
-  const scene = scenes[currentScene - 1];
+  const { currentScene, nextScene, finishQuiz, addScore, scores } = useQuiz();
+  // Prevent out of bounds crash during Framer Motion exit animation when transitioning to result screen
+  const safeSceneIndex = Math.max(0, Math.min(currentScene - 1, scenes.length - 1));
+  const scene = scenes[safeSceneIndex];
 
   if (!scene) return null;
 
   const handleChoice = (choice: Choice) => {
+    let latestScores = { ...scores };
+
     if (choice.effect) {
       Object.entries(choice.effect).forEach(([axis, value]) => {
         addScore(axis as keyof typeof choice.effect, value as number);
+        latestScores[axis as keyof typeof latestScores] += value as number;
       });
     }
 
     if (currentScene === scenes.length) {
-      finishQuiz();
+      finishQuiz(latestScores);
     } else {
       nextScene();
     }

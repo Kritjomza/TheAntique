@@ -13,7 +13,7 @@ interface QuizContextType {
   scores: Scores;
   addScore: (axis: keyof Scores, value: number) => void;
   archetype: ArchetypeName | null;
-  finishQuiz: () => void;
+  finishQuiz: (finalScores?: Scores) => void;
   nextScene: () => void;
   prevScene: () => void;
 }
@@ -41,8 +41,9 @@ export function QuizProvider({ children }: { children: ReactNode }) {
     setCurrentScene((prev) => Math.max(0, prev - 1));
   };
 
-  const finishQuiz = async () => {
-    const result = calculateArchetype(scores);
+  const finishQuiz = async (finalScores?: Scores) => {
+    const scoresToUse = finalScores || scores;
+    const result = calculateArchetype(scoresToUse);
     setArchetype(result);
     setCurrentScene(14); // Assuming 14 is the result screen
 
@@ -50,7 +51,7 @@ export function QuizProvider({ children }: { children: ReactNode }) {
     try {
       const { supabase } = await import("@/lib/supabaseClient");
       const { data, error } = await supabase.from("quiz_results").insert([
-        { user_name: userName, archetype_result: result, scores_json: scores }
+        { user_name: userName, archetype_result: result, scores_json: scoresToUse }
       ]);
       
       if (error) {
