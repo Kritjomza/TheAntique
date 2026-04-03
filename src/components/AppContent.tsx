@@ -30,7 +30,7 @@ export default function AppContent() {
         </div>
       )}
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {currentScene === 0 && <Prologue key="prologue" />}
         {currentScene > 0 && currentScene <= totalScenes && (
           <StoryScene key={`scene-${currentScene}`} />

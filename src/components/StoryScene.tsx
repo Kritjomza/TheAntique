@@ -126,7 +126,7 @@ export default function StoryScene() {
   if (!scene) return null;
 
   const handleChoice = (choice: Choice) => {
-    let latestScores = { ...scores };
+    const latestScores = { ...scores };
 
     if (choice.effect) {
       Object.entries(choice.effect).forEach(([axis, value]) => {
@@ -216,7 +216,9 @@ export default function StoryScene() {
             className="w-full px-5 py-4 border border-brand-charcoal/15 hover:border-brand-gold hover:bg-brand-gold/5 transition-all duration-500 font-sans text-sm text-brand-charcoal/80 hover:text-brand-gold relative overflow-hidden group text-left"
             whileHover={{ x: 4 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => handleChoice(choice)}
+            onClick={() => {
+              if (currentScene <= scenes.length) handleChoice(choice);
+            }}
           >
             <span className="relative z-10 flex items-start gap-3">
               <span className="text-brand-gold/50 font-serif text-xs mt-0.5 shrink-0">
